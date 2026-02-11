@@ -26,6 +26,8 @@ Recent best practices (battle-tested):
 - `scripts/start-watchers.sh` — start/stop/status wrapper (process groups + log tails + lock status)
 - `scripts/agent-watch.sh` — per-role watcher (runs Codex on tasks)
 - `scripts/host-run-watch.sh` — runs allowlisted host commands for `needs_host_run` tasks
+- `scripts/queue-status.sh` — prints queue snapshot + ages
+- `scripts/queue-doctor.sh` — diagnose stuck queues (`--fix` applies safe auto-fixes)
 
 Task/YAML helpers:
 - `scripts/task-new.sh`
@@ -81,6 +83,73 @@ What the installer does:
 - copies `scripts/`, `docs/`, `prompts/` into the target repo
 - writes `AGENTIC_TEAM_KIT.md` into the target repo (reference copy)
 - appends `.gitignore` runtime ignores (locks/logs/run dirs)
+
+---
+
+## Team onboarding (copy/paste quickstart)
+
+This section is meant to be pasted into your team chat / internal wiki.
+
+### 0) Install
+
+```bash
+# from this kit directory
+./install.sh --target /path/to/your/repo --init
+```
+
+### 1) (Recommended) set up one worktree per role
+
+```bash
+cd /path/to/your/repo
+./scripts/worktree-setup.sh a,b
+```
+
+Run watchers from their role worktrees (`repo-a/`, `repo-b/`) so each role has a clean git status.
+
+### 2) Start watchers
+
+From the repo root (or use start-worktree-watchers):
+
+```bash
+./scripts/start-watchers.sh start
+./scripts/start-watchers.sh status --tail 5
+```
+
+### 3) Create a task
+
+```bash
+./scripts/task-new.sh a A-001 "Implement feature X" --priority high
+```
+
+Watch for progress:
+- `.agent-queue/doing/`
+- `.agent-queue/done/`
+- `.agent-queue/failed/`
+
+### 4) Host-run commands (outside the sandbox)
+
+If a task needs a host-only command (Docker, DB integration tests, local tooling):
+- set `state: needs_host_run`
+- set `host_commands: [...]`
+- **do not move the YAML yourself** in the recommended flow; the role watcher routes it to `.agent-queue/host-run/<role>/`.
+
+### 5) Unstick the system in <60s
+
+First step:
+
+```bash
+./scripts/queue-status.sh
+./scripts/queue-doctor.sh
+```
+
+If it’s safe to auto-fix:
+
+```bash
+./scripts/queue-doctor.sh --fix
+```
+
+Locks are stored under:
+- `.agent-queue/logs/.locks/`
 
 ---
 
@@ -226,6 +295,20 @@ Guidelines:
 ---
 
 ## Troubleshooting
+
+Start here (recommended):
+
+```bash
+./scripts/queue-status.sh
+./scripts/queue-doctor.sh
+# safe auto-fixes:
+./scripts/queue-doctor.sh --fix
+```
+
+Key runtime locations:
+- Queue: `.agent-queue/{inbox,doing,host-run,done,failed}/`
+- Logs: `.agent-queue/logs/`
+- Shared locks: `.agent-queue/logs/.locks/`
 
 ### Task not being picked up
 - Is it in `.agent-queue/inbox/<role>/`?
