@@ -1,0 +1,18 @@
+# OS/editor
+.DS_Store
+._*
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Node
+.pnpm-store/
+node_modules/
+
+# Runtime queue state (the kit installs a snippet into target repos)
+.agent-queue/
+.agent-lock/
