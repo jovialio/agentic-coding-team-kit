@@ -20,6 +20,7 @@ Recent best practices (battle-tested):
 - `docs/AGENTS-OPERATOR.md` — day-to-day runbook
 - `docs/AGENTS-SPEC.md` — invariants + state machine
 - `docs/AGENTS-FLOW.md` — end-to-end lifecycle
+- `docs/WORKTREES.md` — how/why to use one git worktree per role
 
 ### Scripts
 - `scripts/start-watchers.sh` — start/stop/status wrapper (process groups + log tails + lock status)
@@ -131,6 +132,9 @@ Optional (recommended): start watchers from per-role worktrees:
 ./scripts/start-worktree-watchers.sh start a,b
 ./scripts/start-worktree-watchers.sh status
 ```
+
+Worktrees explained (incl. why `.agent-queue/done/` stays local):
+- `docs/WORKTREES.md`
 
 ---
 

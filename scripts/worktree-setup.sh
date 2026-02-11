@@ -22,6 +22,7 @@ set -euo pipefail
 # - Symlinks only runtime dirs: inbox/ doing/ failed/ host-run/ playwright/ pytest/ archived/ logs/ run/ host-logs/ artifacts/ trash/
 
 ROLE_LIST="${1:-a,b}"
+BRANCH_PREFIX="${BRANCH_PREFIX:-kit/worktree}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_NAME="$(basename "$REPO_ROOT")"
@@ -40,7 +41,7 @@ for r in "${roles[@]}"; do
   [[ -n "$r" ]] || continue
   mkdir -p ".agent-queue/inbox/$r" ".agent-queue/host-run/$r"
   wt_path="../${REPO_NAME}-${r}"
-  branch="worktree/${r}"
+  branch="${BRANCH_PREFIX}/${r}"
 
   if [[ -d "$wt_path" ]]; then
     echo "[skip] worktree exists: $wt_path"
