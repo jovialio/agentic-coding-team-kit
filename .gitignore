@@ -1,18 +1,26 @@
-# OS/editor
+# agentic-coding-team-kit: keep the kit repo clean (repo-agnostic)
+
+# OS / editor
 .DS_Store
 ._*
+Thumbs.db
 .idea/
 .vscode/
 
 # Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
 .venv/
 
 # Node
-.pnpm-store/
 node_modules/
+.pnpm-store/
+dist/
 
-# Runtime queue state (the kit installs a snippet into target repos)
+# Logs
+*.log
+
+# Runtime queue state (only if you run the kit inside this repo)
 .agent-queue/
 .agent-lock/
