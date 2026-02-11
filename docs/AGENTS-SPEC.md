@@ -59,6 +59,10 @@ Stopping watchers should not strand tasks in `doing/`.
 
 ## Queue + locks
 
+Watcher locks (recommended):
+- Store watcher locks under the shared runtime path: `.agent-queue/logs/.locks/`
+  - This matters because with worktrees-per-role, multiple checkouts share the same runtime queue.
+
 Primary folders:
 - `.agent-queue/inbox/<role>/` — tasks waiting
 - `.agent-queue/doing/` — active tasks + waiting_for_human

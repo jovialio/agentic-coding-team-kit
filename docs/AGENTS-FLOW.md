@@ -51,6 +51,12 @@ Host-run watcher:
 - sets `state: ready`
 - requeues to inbox
 
+Fail-loud rule (recommended):
+- If a task is present in the **explicit** host-run queue but is not runnable (bad `state`, missing/empty `host_commands`, or non-allowlisted commands), move it to `failed/` with:
+  - `state: waiting_for_human`
+  - `error: invalid_host_commands`
+  - a crisp `questions:` message
+
 ### C) Completed
 - On success, role watcher moves task to `done/`
 - On failure, moves to `failed/` and sets `error`

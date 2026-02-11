@@ -110,8 +110,13 @@ Allowed task `state:` values:
 The host-run watcher only executes commands that match an allowlist:
 - `scripts/host-command-allowlist.py`
 
-If a task has `host_commands` that do not match the allowlist, the watcher requeues it back to inbox with:
-- `error=host_command_not_allowed`
+If a task is present in the **explicit** host-run queue but is not runnable (bad `state`, missing/empty `host_commands`, or non-allowlisted commands), the watcher **fails loud**:
+- moves the task to `failed/`
+- sets `state: waiting_for_human`
+- sets `error: invalid_host_commands`
+- appends a crisp `questions:` message
+
+This prevents "silent stuck" tasks sitting in `host-run/` forever.
 
 ---
 
@@ -175,6 +180,9 @@ python3 scripts/task-update.py --file <task.yaml> \
   --set state=needs_host_run \
   --set-json 'host_commands=["make test"]'
 
+# NOTE: In the recommended flow, the role watcher routes the task into
+# .agent-queue/host-run/<role>/ after Codex exits.
+# If you are doing this manually, you can move it into host-run:
 mv <task.yaml> .agent-queue/host-run/<role>/
 ```
 

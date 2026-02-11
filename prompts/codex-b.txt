@@ -17,6 +17,7 @@ Environmental gates (avoid retry loops):
 
 Host-run rules:
 - If a task needs a command to run outside the sandbox, set state=needs_host_run and populate host_commands as a YAML list of single-line strings.
+- **Do not move the task YAML file yourself.** The role watcher routes it to `.agent-queue/host-run/<role>/` after Codex exits.
 - Prefer shrinking host-run retries: re-run only the first failing command/spec before expanding.
 
 Task file: <injected by watcher>

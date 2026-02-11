@@ -188,7 +188,7 @@ case "$cmd" in
 
     echo
     echo "locks:"
-    print_lock_status "$REPO_ROOT/.agent-queue/.host-run.lock"
+    print_lock_status "$REPO_ROOT/.agent-queue/logs/.locks/.host-run.lock"
     ;;
   *)
     echo "Usage: $0 {start|stop|restart|status [--tail N]}" >&2

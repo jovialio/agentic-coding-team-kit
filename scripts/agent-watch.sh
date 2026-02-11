@@ -21,7 +21,10 @@ FAILED_DIR="$BASE_DIR/failed"
 HOST_RUN_DIR="$BASE_DIR/host-run/$ROLE"
 PROMPT_FILE="prompts/codex-$ROLE.txt"
 
-mkdir -p "$INBOX_DIR" "$DOING_DIR" "$DONE_DIR" "$FAILED_DIR" "$HOST_RUN_DIR"
+# Locks must be shared across worktrees because the runtime queue is shared.
+LOCKS_DIR="$BASE_DIR/logs/.locks"
+mkdir -p "$INBOX_DIR" "$DOING_DIR" "$DONE_DIR" "$FAILED_DIR" "$HOST_RUN_DIR" "$LOCKS_DIR"
+ROLE_LOCK_DIR="$LOCKS_DIR/.agent-watch-${ROLE}.lock"
 
 if [[ ! -f "$PROMPT_FILE" ]]; then
   echo "Missing prompt file: $PROMPT_FILE" >&2
@@ -29,6 +32,40 @@ if [[ ! -f "$PROMPT_FILE" ]]; then
 fi
 
 CURRENT_TASK=""
+
+log() {
+  printf '[%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*" >&2
+}
+
+acquire_role_lock() {
+  while true; do
+    if mkdir "$ROLE_LOCK_DIR" 2>/dev/null; then
+      echo "$$" >"$ROLE_LOCK_DIR/pid" 2>/dev/null || true
+      return 0
+    fi
+
+    if [[ -f "$ROLE_LOCK_DIR/pid" ]]; then
+      lock_pid="$(cat "$ROLE_LOCK_DIR/pid" 2>/dev/null || true)"
+      if [[ -n "$lock_pid" ]] && ! kill -0 "$lock_pid" 2>/dev/null; then
+        log "Stale role lock detected for $ROLE (pid $lock_pid not running). Removing lock."
+        rm -f "$ROLE_LOCK_DIR/pid" 2>/dev/null || true
+        rmdir "$ROLE_LOCK_DIR" 2>/dev/null || true
+        continue
+      fi
+      log "Another $ROLE watcher appears to be running (pid $lock_pid). Exiting."
+      exit 0
+    else
+      log "Role lock exists without pid file for $ROLE. Removing lock."
+      rmdir "$ROLE_LOCK_DIR" 2>/dev/null || true
+      continue
+    fi
+  done
+}
+
+release_role_lock() {
+  rm -f "$ROLE_LOCK_DIR/pid" 2>/dev/null || true
+  rmdir "$ROLE_LOCK_DIR" 2>/dev/null || true
+}
 
 safe_move() {
   local src="$1" dest_dir="$2" base_name dest ts
@@ -57,6 +94,14 @@ handle_interrupt() {
 }
 
 trap handle_interrupt INT TERM HUP
+
+cleanup_on_exit() {
+  # Best-effort: never leave a stale role lock behind.
+  release_role_lock
+}
+trap cleanup_on_exit EXIT
+
+acquire_role_lock
 
 auto_requeue_ready_from_doing() {
   local candidates=()

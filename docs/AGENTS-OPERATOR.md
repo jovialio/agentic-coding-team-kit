@@ -181,3 +181,14 @@ python3 scripts/task-sanitize.py --file <task.yaml>
 ./scripts/queue-status.sh
 ./scripts/start-watchers.sh status --tail 5
 ```
+
+## Unstick common issues (recommended)
+
+Use the queue doctor:
+
+```bash
+./scripts/queue-doctor.sh
+./scripts/queue-doctor.sh --fix
+```
+
+`--fix` performs safe auto-fixes (e.g. remove stale locks, fail-loud invalid host-run tasks, requeue tasks stranded in doing/ with state=ready when the role lock is stale).

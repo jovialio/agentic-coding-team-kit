@@ -16,11 +16,12 @@ BASE_DIR="$REPO_ROOT/.agent-queue"
 INBOX_DIR="$BASE_DIR/inbox"
 HOST_RUN_DIR="$BASE_DIR/host-run"
 FAILED_DIR="$BASE_DIR/failed"
-LOCK_DIR="$BASE_DIR/.host-run.lock"
+# Locks must be shared across worktrees because the runtime queue is shared.
+LOCK_DIR="$BASE_DIR/logs/.locks/.host-run.lock"
 LOG_DIR="${WATCHER_LOG_DIR:-$BASE_DIR/logs}"
 LOG_FILE="$LOG_DIR/host-run-watch.log"
 
-mkdir -p "$INBOX_DIR" "$HOST_RUN_DIR" "$FAILED_DIR" "$LOG_DIR"
+mkdir -p "$INBOX_DIR" "$HOST_RUN_DIR" "$FAILED_DIR" "$LOG_DIR" "$BASE_DIR/logs/.locks"
 
 # Ensure PyYAML is available.
 if ! python3 -c 'import yaml' >/dev/null 2>&1; then
@@ -81,6 +82,24 @@ PY
 extract_cmds() {
   local task="$1"
   python3 "$REPO_ROOT/scripts/host-command-allowlist.py" --file "$task"
+}
+
+move_to_failed_waiting() {
+  local task="$1" reason="$2"
+  local question
+  question="Host-run task is not runnable: ${reason}. Expected: state: needs_host_run and host_commands: [ ... ] containing allowlisted commands (see scripts/host-command-allowlist.py). Please fix and requeue."
+  "$REPO_ROOT/scripts/task-update.py" \
+    --file "$task" \
+    --set state=waiting_for_human \
+    --set error=invalid_host_commands \
+    --append "questions=$question" \
+    --clear host_commands >/dev/null 2>&1 || true
+  dest="$FAILED_DIR/$(basename "$task")"
+  if [[ -e "$dest" ]]; then
+    dest="$FAILED_DIR/$(basename "$task").$(date -u +'%Y%m%dT%H%M%SZ')"
+  fi
+  mv "$task" "$dest" 2>/dev/null || true
+  log "Invalid task; moved to failed: $dest"
 }
 
 requeue_dest_name() {
@@ -184,24 +203,15 @@ main() {
     for task in "${tasks[@]}"; do
       role=""
       if ! role=$(should_handle "$task" 2>/dev/null); then
-        continue
+        # Anything sitting in the explicit host-run queue should be actionable.
+        move_to_failed_waiting "$task" "bad state/role/host_commands (expected state: needs_host_run + host_commands list)"
+        handled_any=1
+        break
       fi
 
       if ! cmds=$(extract_cmds "$task" 2>/dev/null); then
         handled_any=1
-        log "Host-run command not allowlisted for task: $task"
-
-        msg="host-run watcher skipped host_commands because none matched the allowlist (see scripts/host-command-allowlist.py)."
-        "$REPO_ROOT/scripts/task-update.py" \
-          --file "$task" \
-          --set state=ready \
-          --set error=host_command_not_allowed \
-          --append "answers=$msg" \
-          --clear host_commands >/dev/null 2>&1 || true
-
-        mkdir -p "$INBOX_DIR/$role"
-        dest="$INBOX_DIR/$role/$(requeue_dest_name "$task" "$role")"
-        mv "$task" "$dest" 2>/dev/null || mv -f "$task" "$FAILED_DIR/$(basename "$task").$(date -u +'%Y%m%dT%H%M%SZ')" 2>/dev/null || true
+        move_to_failed_waiting "$task" "host_commands missing/empty or contains non-allowlisted commands"
         break
       fi
 

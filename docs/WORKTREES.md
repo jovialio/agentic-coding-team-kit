@@ -26,6 +26,9 @@ So the kit’s worktree setup keeps:
 …and symlinks only the *runtime* queue folders:
 - `inbox/`, `doing/`, `failed/`, `host-run/`, `playwright/`, `pytest/`, `archived/`, `logs/`, `run/`, `host-logs/`, `artifacts/`, `trash/`
 
+Tip:
+- Put watcher locks under the shared logs folder (e.g. `.agent-queue/logs/.locks/`) so one lock applies across all worktrees.
+
 ## Quick start
 
 From your repo root (after installing this kit):
