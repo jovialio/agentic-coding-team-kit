@@ -315,6 +315,20 @@ From your repo root (after install):
 ./scripts/start-watchers.sh stop
 ```
 
+### Start watchers using per-role worktrees (recommended)
+
+If you want each role watcher to run in its **own git worktree** (clean `git status`, fewer cross-role conflicts), use either:
+
+```bash
+# Option A: dedicated helper
+./scripts/start-worktree-watchers.sh start a,b
+
+# Option B: built-in flag
+./scripts/start-watchers.sh start --worktrees
+```
+
+(Worktrees are created by `./scripts/worktree-setup.sh` as siblings like `../<repo>-a`, `../<repo>-b`.)
+
 ## How to monitor what Codex / watchers are doing
 
 There are three layers of visibility:

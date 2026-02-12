@@ -101,6 +101,14 @@ Start all watchers:
 ./scripts/start-watchers.sh start
 ```
 
+Start watchers using per-role worktrees (recommended):
+
+```bash
+./scripts/start-watchers.sh start --worktrees
+# or:
+./scripts/start-worktree-watchers.sh start a,b
+```
+
 Status (with recent logs):
 
 ```bash

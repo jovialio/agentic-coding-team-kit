@@ -11,15 +11,16 @@ mkdir -p "$RUN_DIR" "$LOG_DIR"
 # Default roles; override with AGENT_ROLES=a,b,c
 ROLE_LIST="${AGENT_ROLES:-a,b}"
 
-# Build watcher list dynamically based on ROLE_LIST.
-watchers=()
+# Roles are a CSV. Default a,b; override with AGENT_ROLES.
 IFS=',' read -r -a roles <<<"$ROLE_LIST"
+# Watcher names are derived from roles.
+watcher_names=()
 for r in "${roles[@]}"; do
   r="${r// /}"
   [[ -n "$r" ]] || continue
-  watchers+=("agent-$r|./scripts/agent-watch.sh $r")
+  watcher_names+=("agent-$r")
 done
-watchers+=("host-run|./scripts/host-run-watch.sh")
+watcher_names+=("host-run")
 
 pid_file() { echo "$RUN_DIR/$1.pid"; }
 log_file() { echo "$LOG_DIR/$1.log"; }
@@ -45,7 +46,7 @@ kill_group() {
 }
 
 start_one() {
-  local name="$1" cmd="$2"
+  local name="$1" cmd="$2" cwd="$3"
   local pf lf pid
   pf="$(pid_file "$name")"
   lf="$(log_file "$name")"
@@ -60,9 +61,9 @@ start_one() {
 
   echo "[start] $name"
   if command -v setsid >/dev/null 2>&1; then
-    nohup setsid bash -lc "cd '$REPO_ROOT' && exec $cmd" >>"$lf" 2>&1 &
+    nohup setsid bash -lc "cd '$cwd' && exec $cmd" >>"$lf" 2>&1 &
   else
-    nohup bash -lc "cd '$REPO_ROOT' && exec $cmd" >>"$lf" 2>&1 &
+    nohup bash -lc "cd '$cwd' && exec $cmd" >>"$lf" 2>&1 &
   fi
 
   pid=$!
@@ -153,36 +154,69 @@ status_one() {
 }
 
 cmd="${1:-start}"
+shift || true
+
 case "$cmd" in
   start)
+    use_worktrees="${USE_WORKTREES:-false}"
+    if [[ "${1:-}" == "--worktrees" ]]; then
+      use_worktrees="true"
+      shift
+    fi
+
     # Propagate role list for python validator.
     export AGENT_ROLES="$ROLE_LIST"
 
-    for w in "${watchers[@]}"; do
-      IFS='|' read -r name run_cmd <<<"$w"
-      start_one "$name" "$run_cmd"
+    repo_name="$(basename "$REPO_ROOT")"
+    repo_parent="$(cd "$REPO_ROOT/.." && pwd)"
+
+    # (Optional) ensure worktrees exist if requested.
+    if [[ "$use_worktrees" == "true" ]]; then
+      if [[ -x "$REPO_ROOT/scripts/worktree-setup.sh" ]]; then
+        "$REPO_ROOT/scripts/worktree-setup.sh" "$ROLE_LIST" >/dev/null || true
+      else
+        echo "[err] worktree-setup.sh not found/executable; cannot use --worktrees" >&2
+        exit 1
+      fi
+    fi
+
+    # Start role watchers
+    for r in "${roles[@]}"; do
+      r="${r// /}"
+      [[ -n "$r" ]] || continue
+
+      cwd="$REPO_ROOT"
+      if [[ "$use_worktrees" == "true" ]]; then
+        cwd="$repo_parent/${repo_name}-${r}"
+      fi
+
+      start_one "agent-$r" "./scripts/agent-watch.sh $r" "$cwd"
     done
+
+    # Start host-run watcher from main repo root
+    start_one "host-run" "./scripts/host-run-watch.sh" "$REPO_ROOT"
     ;;
+
   stop)
-    for w in "${watchers[@]}"; do
-      IFS='|' read -r name _ <<<"$w"
+    for name in "${watcher_names[@]}"; do
       stop_one "$name"
     done
     ;;
+
   restart)
     "$0" stop
     "$0" start
     ;;
+
   status)
     tail_lines=0
-    if [[ "${2:-}" == "--tail" ]]; then
-      tail_lines="${3:-5}"
-    elif [[ "${2:-}" =~ ^[0-9]+$ ]]; then
-      tail_lines="$2"
+    if [[ "${1:-}" == "--tail" ]]; then
+      tail_lines="${2:-5}"
+    elif [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+      tail_lines="$1"
     fi
 
-    for w in "${watchers[@]}"; do
-      IFS='|' read -r name _ <<<"$w"
+    for name in "${watcher_names[@]}"; do
       status_one "$name" "$tail_lines"
     done
 
@@ -190,8 +224,9 @@ case "$cmd" in
     echo "locks:"
     print_lock_status "$REPO_ROOT/.agent-queue/logs/.locks/.host-run.lock"
     ;;
+
   *)
-    echo "Usage: $0 {start|stop|restart|status [--tail N]}" >&2
+    echo "Usage: $0 {start [--worktrees]|stop|restart|status [--tail N]}" >&2
     exit 2
     ;;
 esac
