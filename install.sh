@@ -76,10 +76,21 @@ copy_dir() {
   mkdir -p "$dest"
 
   if command -v rsync >/dev/null 2>&1; then
+    # Avoid copying runtime/editor caches into target repos.
+    # rsync does NOT respect .gitignore automatically.
+    local excludes=(
+      --exclude '__pycache__/'
+      --exclude '*.pyc'
+      --exclude '.pytest_cache/'
+      --exclude '.venv/'
+      --exclude 'node_modules/'
+      --exclude '.pnpm-store/'
+    )
+
     if [[ "$FORCE" == "true" ]]; then
-      rsync -a "$src/" "$dest/"
+      rsync -a "${excludes[@]}" "$src/" "$dest/"
     else
-      rsync -a --ignore-existing "$src/" "$dest/"
+      rsync -a --ignore-existing "${excludes[@]}" "$src/" "$dest/"
     fi
     return 0
   fi
@@ -94,6 +105,13 @@ copy_dir() {
       mkdir -p "$dest/$d"
     done
     (cd "$src" && find . -type f -print0) | while IFS= read -r -d '' f; do
+      # Skip caches that may exist locally (installer should be clean by default)
+      case "$f" in
+        */__pycache__/*|*.pyc|*/.pytest_cache/*|*/.venv/*|*/node_modules/*|*/.pnpm-store/*)
+          continue
+          ;;
+      esac
+
       if [[ ! -e "$dest/$f" ]]; then
         cp -a "$src/$f" "$dest/$f"
       fi
