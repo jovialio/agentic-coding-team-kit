@@ -296,6 +296,80 @@ Guidelines:
 
 ## Troubleshooting
 
+### Common blockers (quick fixes)
+
+#### 1) File permissions / executability
+
+Symptoms:
+- `Permission denied` when running scripts
+- watcher logs show `bash: ./scripts/...: Permission denied`
+
+Fix:
+```bash
+chmod +x install.sh scripts/*.sh
+```
+
+Also ensure the queue dirs are writable by your user:
+```bash
+mkdir -p .agent-queue .agent-lock
+# if needed:
+# sudo chown -R "$USER" .agent-queue .agent-lock
+```
+
+#### 2) Missing / broken Python dependencies
+
+Symptoms:
+- watcher exits immediately
+- log shows `ERROR: PyYAML is not installed for python3`
+
+Fix:
+```bash
+python3 -c "import yaml; print('PyYAML OK')"
+# Debian/Ubuntu:
+apt-get install -y python3-yaml
+# or:
+pip install pyyaml
+```
+
+#### 3) Codex CLI not installed / not on PATH / not authenticated
+
+Symptoms:
+- tasks move to `failed/` with `error: codex_not_found`
+- watcher log shows `codex: command not found`
+
+Fix:
+```bash
+codex --version
+# If your environment requires auth, confirm it is logged in:
+# codex login status
+```
+
+#### 4) Role / env var mismatch (AGENT_ROLES)
+
+Symptoms:
+- tasks fail validation with “Invalid role: …”
+
+Fix:
+- If you add roles beyond `a,b`, start watchers with:
+  ```bash
+  AGENT_ROLES=a,b,review ./scripts/start-watchers.sh start
+  ```
+- Ensure your tasks’ `role:` field matches one of the configured roles.
+
+#### 5) Tasks stuck in the queue
+
+First step:
+```bash
+./scripts/queue-status.sh
+./scripts/queue-doctor.sh
+# safe auto-fixes:
+./scripts/queue-doctor.sh --fix
+```
+
+Notes:
+- `state: waiting_for_human` will intentionally pause in `doing/` until you answer and resume.
+- `state: needs_host_run` must have non-empty `host_commands:` and the command must match the allowlist.
+
 Start here (recommended):
 
 ```bash
