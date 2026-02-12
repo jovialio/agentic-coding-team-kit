@@ -252,8 +252,13 @@ Tasks are YAML files stored under:
 Role watchers:
 - pick tasks from inbox
 - move them into `doing/`
-- run Codex with the role prompt
+- run Codex with the role prompt (`codex exec ...`)
+- record Codex **process exit code** into the task YAML (e.g. `last_agent_exit`)
 - route the task based on `state:`
+
+Exit-code semantics (important):
+- **exit 0**: watcher treats the run as successful. If the task did not request a pause (`state: waiting_for_human`) or host-run (`state: needs_host_run`), it moves the task to `done/`.
+- **exit non-zero**: watcher treats the run as a failure, sets `error: codex_exit_<code>`, and moves the task to `failed/`.
 
 ### State machine
 Allowed task `state:` values:
