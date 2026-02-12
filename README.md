@@ -1,6 +1,6 @@
 # Agentic coding team kit (file-based queue)
 
-A reusable template for running multiple Codex CLI agents as a **small coding team** using:
+A reusable template for running multiple **CLI coding agents** (Codex CLI or Claude Code) as a **small coding team** using:
 - a shared YAML task queue on disk
 - one watcher per role (e.g. `a`, `b`, `review`)
 - an optional **host-run** watcher for commands that must run outside the agent sandbox
@@ -24,7 +24,7 @@ Recent best practices (battle-tested):
 
 ### Scripts
 - `scripts/start-watchers.sh` — start/stop/status wrapper (process groups + log tails + lock status)
-- `scripts/agent-watch.sh` — per-role watcher (runs Codex on tasks)
+- `scripts/agent-watch.sh` — per-role watcher (runs Codex CLI or Claude Code on tasks)
 - `scripts/host-run-watch.sh` — runs allowlisted host commands for `needs_host_run` tasks
 - `scripts/queue-status.sh` — prints queue snapshot + ages
 - `scripts/queue-doctor.sh` — diagnose stuck queues (`--fix` applies safe auto-fixes)
@@ -43,6 +43,8 @@ Host-run safety:
 - `prompts/codex-a.txt`
 - `prompts/codex-b.txt`
 
+Note: prompts are named `codex-<role>.txt` for historical reasons; they work with both Codex CLI and Claude Code runners.
+
 You can add more roles by creating `prompts/codex-<role>.txt`.
 
 ---
@@ -59,10 +61,32 @@ Install:
 - Debian/Ubuntu: `apt-get install -y python3-yaml`
 - or: `pip install pyyaml`
 
-2) **Codex CLI**
+2) **Coding agent CLI** (pick one)
 
+**Option A: Codex CLI**
 ```bash
 codex --version
+```
+
+**Option B: Claude Code CLI**
+```bash
+claude --version
+```
+
+One-shot mode equivalence (non-interactive):
+- Codex: `codex exec "..."` (also aliased as `codex e`)
+- Claude: `claude -p "..."` (print final output to stdout, then exit)
+
+Select runner at runtime via env var (`AGENT_RUNNER`):
+```bash
+# default is codex
+./scripts/start-watchers.sh start
+
+# force Codex
+AGENT_RUNNER=codex ./scripts/start-watchers.sh start
+
+# use Claude Code
+AGENT_RUNNER=claude ./scripts/start-watchers.sh start
 ```
 
 ---
@@ -252,13 +276,13 @@ Tasks are YAML files stored under:
 Role watchers:
 - pick tasks from inbox
 - move them into `doing/`
-- run Codex with the role prompt (`codex exec ...`)
-- record Codex **process exit code** into the task YAML (e.g. `last_agent_exit`)
+- run the configured coding agent with the role prompt (`AGENT_RUNNER=codex` or `AGENT_RUNNER=claude`)
+- record the agent **process exit code** into the task YAML (e.g. `last_agent_exit`)
 - route the task based on `state:`
 
 Exit-code semantics (important):
 - **exit 0**: watcher treats the run as successful. If the task did not request a pause (`state: waiting_for_human`) or host-run (`state: needs_host_run`), it moves the task to `done/`.
-- **exit non-zero**: watcher treats the run as a failure, sets `error: codex_exit_<code>`, and moves the task to `failed/`.
+- **exit non-zero**: watcher treats the run as a failure, sets `error: <runner>_exit_<code>` (e.g. `codex_exit_1`, `claude_exit_2`), and moves the task to `failed/`.
 
 ### State machine
 Allowed task `state:` values:
@@ -474,17 +498,22 @@ apt-get install -y python3-yaml
 pip install pyyaml
 ```
 
-#### 3) Codex CLI not installed / not on PATH / not authenticated
+#### 3) Runner CLI not installed / not on PATH / not authenticated
 
 Symptoms:
-- tasks move to `failed/` with `error: codex_not_found`
-- watcher log shows `codex: command not found`
+- tasks move to `failed/` with `error: codex_not_found` or `error: claude_not_found`
+- watcher log shows `codex: command not found` or `claude: command not found`
 
 Fix:
 ```bash
+# Codex runner
 codex --version
 # If your environment requires auth, confirm it is logged in:
 # codex login status
+
+# Claude Code runner
+claude --version
+# If your environment requires auth, confirm it is logged in.
 ```
 
 #### 4) Role / env var mismatch (AGENT_ROLES)

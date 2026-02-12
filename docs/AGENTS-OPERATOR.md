@@ -20,9 +20,21 @@ Install:
 - Debian/Ubuntu: `apt-get install -y python3-yaml`
 - or: `pip install pyyaml`
 
-### Codex CLI
+### Coding agent runner (Codex or Claude Code)
 
-`codex` must be installed and on PATH.
+You need a runner installed and on PATH.
+
+- **Codex CLI**: `codex --version`
+- **Claude Code CLI**: `claude --version`
+
+Select runner at runtime via env var:
+```bash
+# default is codex
+./scripts/start-watchers.sh start
+
+# use Claude Code
+AGENT_RUNNER=claude ./scripts/start-watchers.sh start
+```
 
 ---
 

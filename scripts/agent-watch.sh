@@ -158,20 +158,46 @@ while true; do
 
   PROMPT_TEXT="$(cat "$PROMPT_FILE")"
 
-  if ! command -v codex >/dev/null 2>&1; then
-    python3 scripts/task-update.py --file "$CURRENT_TASK" --set error=codex_not_found >/dev/null || true
+  # Runner selection
+  # - codex: uses `codex exec ...` (non-interactive)
+  # - claude: uses `claude -p ...` one-shot mode (prints output then exits)
+  RUNNER="${AGENT_RUNNER:-codex}"
+
+  if [[ "$RUNNER" == "codex" ]]; then
+    if ! command -v codex >/dev/null 2>&1; then
+      python3 scripts/task-update.py --file "$CURRENT_TASK" --set error=codex_not_found >/dev/null || true
+      safe_move "$CURRENT_TASK" "$FAILED_DIR"
+      CURRENT_TASK=""
+      continue
+    fi
+
+    set +e
+    codex exec \
+      --sandbox workspace-write \
+      --config approval_policy=never \
+      "$PROMPT_TEXT"$'\n\n'"Task file: $CURRENT_TASK"
+    STATUS=$?
+    set -e
+
+  elif [[ "$RUNNER" == "claude" ]]; then
+    if ! command -v claude >/dev/null 2>&1; then
+      python3 scripts/task-update.py --file "$CURRENT_TASK" --set error=claude_not_found >/dev/null || true
+      safe_move "$CURRENT_TASK" "$FAILED_DIR"
+      CURRENT_TASK=""
+      continue
+    fi
+
+    set +e
+    claude -p "$PROMPT_TEXT"$'\n\n'"Task file: $CURRENT_TASK"
+    STATUS=$?
+    set -e
+
+  else
+    python3 scripts/task-update.py --file "$CURRENT_TASK" --set "error=unknown_agent_runner_${RUNNER}" >/dev/null || true
     safe_move "$CURRENT_TASK" "$FAILED_DIR"
     CURRENT_TASK=""
     continue
   fi
-
-  set +e
-  codex exec \
-    --sandbox workspace-write \
-    --config approval_policy=never \
-    "$PROMPT_TEXT"$'\n\n'"Task file: $CURRENT_TASK"
-  STATUS=$?
-  set -e
 
   python3 scripts/task-update.py --file "$CURRENT_TASK" --set last_agent_exit="$STATUS" >/dev/null || true
 
@@ -192,7 +218,7 @@ while true; do
   if [[ $STATUS -eq 0 ]]; then
     safe_move "$CURRENT_TASK" "$DONE_DIR"
   else
-    python3 scripts/task-update.py --file "$CURRENT_TASK" --set "error=codex_exit_${STATUS}" >/dev/null || true
+    python3 scripts/task-update.py --file "$CURRENT_TASK" --set "error=${RUNNER}_exit_${STATUS}" >/dev/null || true
     safe_move "$CURRENT_TASK" "$FAILED_DIR"
   fi
 

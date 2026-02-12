@@ -24,6 +24,7 @@ What it installs:
 Notes:
 - Requires: bash, cp (and optionally rsync).
 - Requires: python3 + PyYAML to run the watchers.
+- Requires a coding agent CLI: either `codex` (Codex CLI) or `claude` (Claude Code CLI).
 EOF
 }
 
@@ -180,6 +181,8 @@ if [[ "$DO_INIT" == "true" ]]; then
 fi
 
 echo "Done. Next steps:"
-echo "  1) Ensure python3 PyYAML: python3 -c 'import yaml'"
-echo "  2) Start watchers: ./scripts/start-watchers.sh start"
-echo "  3) Create a task: ./scripts/task-new.sh a A-001 \"First task\""
+echo "  1) Ensure python3 + PyYAML: python3 -c 'import yaml'"
+echo "  2) Ensure a runner is installed: codex --version  (or: claude --version)"
+echo "  3) Start watchers (default codex): ./scripts/start-watchers.sh start"
+echo "     Start watchers (Claude Code): AGENT_RUNNER=claude ./scripts/start-watchers.sh start"
+echo "  4) Create a task: ./scripts/task-new.sh a A-001 \"First task\""
