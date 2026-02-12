@@ -190,6 +190,46 @@ Locks are stored under:
 
 ## How it works (conceptual)
 
+### Coordinator (main agent) + role agents
+
+This system is designed around a **single coordinator** (a “main agent” like R2D2, or a human operator) that manages work by writing YAML tasks into role inboxes.
+
+- The **coordinator** does *not* need to run Codex directly.
+- The coordinator:
+  - creates tasks in `.agent-queue/inbox/<role>/`
+  - monitors progress (`queue-status`, watcher logs)
+  - answers questions when a task pauses (`state: waiting_for_human`)
+  - requeues tasks after answers / fixes
+  - runs `queue-doctor --fix` to recover from common stuck states
+- **Role agents** (one per role) are “workers” that run via watchers and only touch the code in their scope.
+- The **host-run watcher** is a special worker for commands that must run outside the agent sandbox (Docker/DB/integration tests, etc.).
+
+Flow (high level):
+```mermaid
+flowchart TD
+  C[Coordinator (main agent / operator)] -->|Create task YAML| I[.agent-queue/inbox/&lt;role&gt;/]
+
+  I --> W[Role watcher (agent-watch.sh &lt;role&gt;)]
+  W --> D[.agent-queue/doing/]
+  D --> X[Codex runs with role prompt]
+  X --> D
+
+  D -->|state: waiting_for_human| H[Pause for coordinator answer]
+  H -->|answers + state: ready + resume| I
+
+  D -->|state: needs_host_run + host_commands| Q[.agent-queue/host-run/&lt;role&gt;/]
+  Q --> HR[Host-run watcher (host-run-watch.sh)]
+  HR -->|append answers + state: ready + requeue| I
+
+  D -->|success| DONE[.agent-queue/done/]
+  D -->|failure| FAIL[.agent-queue/failed/]
+
+  C -.->|Monitor / unstick| S[queue-status.sh / queue-doctor.sh]
+  S -.-> I
+  S -.-> D
+  S -.-> Q
+```
+
 ### The queue
 Tasks are YAML files stored under:
 
