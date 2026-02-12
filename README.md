@@ -243,24 +243,24 @@ This system is designed around a **single coordinator** (a “main agent” like
 Flow (high level):
 ```mermaid
 flowchart TD
-  C[Coordinator (main agent)] -->|create task YAML| I[.agent-queue/inbox/ROLE/]
+  C["Coordinator (main agent)"] -->|create task YAML| I[".agent-queue/inbox/ROLE/"]
 
-  I --> W[Role watcher: agent-watch.sh ROLE]
-  W --> D[.agent-queue/doing/]
-  D --> R[Run agent CLI (codex exec OR claude -p)]
+  I --> W["Role watcher: agent-watch.sh ROLE"]
+  W --> D[".agent-queue/doing/"]
+  D --> R["Run agent CLI: codex exec OR claude -p"]
   R --> D
 
-  D -->|state: waiting_for_human| H[Waiting for coordinator answer]
-  H -->|answer + state: ready + resume| I
+  D -->|state=waiting_for_human| H["Waiting for coordinator answer"]
+  H -->|answer + set state=ready + resume| I
 
-  D -->|state: needs_host_run| Q[.agent-queue/host-run/ROLE/]
-  Q --> HR[Host-run watcher: host-run-watch.sh]
-  HR -->|append result + state: ready + requeue| I
+  D -->|state=needs_host_run| Q[".agent-queue/host-run/ROLE/"]
+  Q --> HR["Host-run watcher: host-run-watch.sh"]
+  HR -->|append result + set state=ready + requeue| I
 
-  D -->|success| DONE[.agent-queue/done/]
-  D -->|failure| FAIL[.agent-queue/failed/]
+  D -->|success| DONE[".agent-queue/done/"]
+  D -->|failure| FAIL[".agent-queue/failed/"]
 
-  C -.->|monitor / unstick| S[queue-status.sh + queue-doctor.sh]
+  C -.->|monitor / unstick| S["queue-status.sh + queue-doctor.sh"]
   S -.-> I
   S -.-> D
   S -.-> Q
