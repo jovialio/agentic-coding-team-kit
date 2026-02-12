@@ -358,10 +358,9 @@ Add your answer and resume:
 
 ```bash
 python3 scripts/task-update.py --file <task.yaml> \
-  --append "answers=YOUR ANSWER" \
-  --set state=ready \
-  --set error=""
+  --append "answers=YOUR ANSWER"
 
+# --ready sets state=ready and clears error for you.
 ./scripts/task-resume.sh <task.yaml> --ready
 ```
 
