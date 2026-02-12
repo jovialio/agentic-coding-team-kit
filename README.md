@@ -163,10 +163,22 @@ Watch for progress:
 
 ### 4) Host-run commands (outside the sandbox)
 
-If a task needs a host-only command (Docker, DB integration tests, local tooling):
+If a task needs a command that **cannot** (or should not) run inside the Codex sandbox (e.g. Docker socket, GPU, privileged system tools, long-running integration tests), use the **host-run watcher**.
+
+Typical examples:
+- Dockerized E2E tests (Playwright-in-Docker)
+- DB-backed integration tests that require local services
+- GPU / CUDA smoke tests
+- repo-specific scripts like `./scripts/test-smoke.sh` (if allowlisted)
+
+How to trigger host-run:
 - set `state: needs_host_run`
-- set `host_commands: [...]`
+- set `host_commands: [...]` (YAML list of single-line strings)
 - **do not move the YAML yourself** in the recommended flow; the role watcher routes it to `.agent-queue/host-run/<role>/`.
+
+Safety (important):
+- `host-run-watch.sh` will only execute commands that match the allowlist in `scripts/host-command-allowlist.py`.
+- If a task lands in the explicit host-run queue but is not runnable (bad `state`, missing/empty `host_commands`, or not allowlisted), the watcher will **fail loud** (moves task to `failed/` with `error: invalid_host_commands` and a `questions:` prompt).
 
 ### 5) Unstick the system in <60s
 
