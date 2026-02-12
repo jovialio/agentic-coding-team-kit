@@ -230,7 +230,7 @@ Locks are stored under:
 
 This system is designed around a **single coordinator** (a “main agent” like R2D2, or a human operator) that manages work by writing YAML tasks into role inboxes.
 
-- The **coordinator** does *not* need to run Codex directly.
+- The **coordinator** does *not* need to run the coding agent directly.
 - The coordinator:
   - creates tasks in `.agent-queue/inbox/<role>/`
   - monitors progress (`queue-status`, watcher logs)
@@ -243,24 +243,24 @@ This system is designed around a **single coordinator** (a “main agent” like
 Flow (high level):
 ```mermaid
 flowchart TD
-  C[Coordinator (main agent / operator)] -->|Create task YAML| I[.agent-queue/inbox/&lt;role&gt;/]
+  C[Coordinator (main agent)] -->|create task YAML| I[.agent-queue/inbox/ROLE/]
 
-  I --> W[Role watcher (agent-watch.sh &lt;role&gt;)]
+  I --> W[Role watcher: agent-watch.sh ROLE]
   W --> D[.agent-queue/doing/]
-  D --> X[Codex runs with role prompt]
-  X --> D
+  D --> R[Run agent CLI (codex exec OR claude -p)]
+  R --> D
 
-  D -->|state: waiting_for_human| H[Pause for coordinator answer]
-  H -->|answers + state: ready + resume| I
+  D -->|state: waiting_for_human| H[Waiting for coordinator answer]
+  H -->|answer + state: ready + resume| I
 
-  D -->|state: needs_host_run + host_commands| Q[.agent-queue/host-run/&lt;role&gt;/]
-  Q --> HR[Host-run watcher (host-run-watch.sh)]
-  HR -->|append answers + state: ready + requeue| I
+  D -->|state: needs_host_run| Q[.agent-queue/host-run/ROLE/]
+  Q --> HR[Host-run watcher: host-run-watch.sh]
+  HR -->|append result + state: ready + requeue| I
 
   D -->|success| DONE[.agent-queue/done/]
   D -->|failure| FAIL[.agent-queue/failed/]
 
-  C -.->|Monitor / unstick| S[queue-status.sh / queue-doctor.sh]
+  C -.->|monitor / unstick| S[queue-status.sh + queue-doctor.sh]
   S -.-> I
   S -.-> D
   S -.-> Q
