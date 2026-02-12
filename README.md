@@ -79,6 +79,41 @@ Options:
 - `--force` overwrite existing files in the target
 - `--init` create `.agent-queue/**` and `.agent-lock/` directories
 
+### Install notes (conflicts + safe upgrades)
+
+By default, the installer is **conservative**:
+- Without `--force`, it will **not overwrite** existing files in the target repo.
+- This is safer, but it can produce a **partial install/upgrade** if your repo already has files with the same paths (e.g. `scripts/agent-watch.sh`, `docs/AGENTS-SPEC.md`).
+
+Recommended workflow (safe):
+1) Install on a fresh branch
+2) Review the diff
+3) Merge
+
+Example:
+```bash
+cd /path/to/your/repo
+git checkout -b chore/agentic-kit-install
+
+# from the kit directory:
+./install.sh --target /path/to/your/repo --init
+
+cd /path/to/your/repo
+git status
+git diff
+```
+
+If you *intend* to replace existing kit files (overwrite), re-run with `--force`:
+```bash
+./install.sh --target /path/to/your/repo --init --force
+```
+
+If you want to keep some kit files but not others, prefer resolving conflicts explicitly:
+- rename your existing scripts, or
+- selectively copy/merge only the files you want.
+
+Also note: the installer appends a `.gitignore` snippet that ignores most `.agent-queue/**` runtime state (including `inbox/`). If you want tasks committed for audit/history, edit the added snippet accordingly.
+
 What the installer does:
 - copies `scripts/`, `docs/`, `prompts/` into the target repo
 - writes `AGENTIC_TEAM_KIT.md` into the target repo (reference copy)
