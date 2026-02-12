@@ -274,6 +274,58 @@ From your repo root (after install):
 ./scripts/start-watchers.sh stop
 ```
 
+## How to monitor what Codex / watchers are doing
+
+There are three layers of visibility:
+
+### 1) Queue folders (ground truth)
+
+```bash
+# In-progress tasks (and waiting_for_human)
+ls -la .agent-queue/doing/
+
+# Tasks waiting to start (per role)
+find .agent-queue/inbox -maxdepth 2 -type f -name "*.y*ml" -print
+
+# Tasks queued for host-run (integration tests, docker, playwright/pytest-style gates)
+find .agent-queue/host-run -maxdepth 2 -type f -name "*.y*ml" -print
+
+# Completed / failed
+ls -la .agent-queue/done/
+ls -la .agent-queue/failed/
+```
+
+Tip: open the YAML in `.agent-queue/doing/` to see the exact task context, current `state:`, questions/answers, attempts, and any error.
+
+### 2) Queue snapshot + ages (recommended)
+
+```bash
+./scripts/queue-status.sh
+```
+
+This prints `doing`, `inbox`, `host-run`, `failed`, `done` with file ages so you can spot stuck work quickly.
+
+### 3) Watcher logs (live progress)
+
+Logs are written under:
+- `.agent-queue/logs/agent-<role>.log`
+- `.agent-queue/logs/host-run.log`
+
+Tail them:
+```bash
+# Role watcher(s) (Codex)
+tail -n 200 -f .agent-queue/logs/agent-a.log
+# tail -n 200 -f .agent-queue/logs/agent-b.log
+
+# Host-run watcher
+tail -n 200 -f .agent-queue/logs/host-run.log
+```
+
+Note: `host-run-watch.sh` may also write an internal log file named `host-run-watch.log` in the same directory. If `host-run.log` is empty, try:
+```bash
+tail -n 200 -f .agent-queue/logs/host-run-watch.log
+```
+
 Optional (recommended): start watchers from per-role worktrees:
 
 ```bash
